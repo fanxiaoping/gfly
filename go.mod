@@ -1,4 +1,4 @@
-module gfly
+module github.com/fanxiaoping/gfly
 
 go 1.12
 
