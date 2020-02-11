@@ -3,6 +3,11 @@ package gfly
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"log"
+	"net"
+	"net/http"
+	"strings"
+
 	"github.com/fanxiaoping/gfly/util"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -10,10 +15,6 @@ import (
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"log"
-	"net"
-	"net/http"
-	"strings"
 )
 
 // apConfig Configuration information
@@ -23,7 +24,7 @@ type apConfig struct {
 	// 证书信息
 	cer, key []byte
 	// 测试域
-	serverNameOverride  string
+	serverNameOverride string
 	// Cert is a self signed certificate
 	cert tls.Certificate
 	// CertPool contains the self signed certificate
@@ -38,13 +39,14 @@ type apConfig struct {
 	httpMux *http.ServeMux
 	// http过滤器
 	// 返回false结束请求
-	gwFilter func(w http.ResponseWriter, r *http.Request)bool
+	gwFilter func(w http.ResponseWriter, r *http.Request) bool
 	// http上下文对象
 	ctx context.Context
+	//
+	interceptors []grpc.UnaryServerInterceptor
 }
 
-
-func (a *apConfig) newServer(){
+func (a *apConfig) newServer() {
 	conn, err := net.Listen("tcp", a.addr)
 	if err != nil {
 		log.Fatalln("TCP Listen err:%v\n", err)
@@ -53,22 +55,22 @@ func (a *apConfig) newServer(){
 	defer cancel()
 
 	srv := &http.Server{
-		Addr:      a.addr,
-		Handler:   a.grpcHandlerFunc(a.grpcServer, a.httpMux),
+		Addr:    a.addr,
+		Handler: a.grpcHandlerFunc(a.grpcServer, a.httpMux),
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{a.cert},
 			NextProtos:   []string{http2.NextProtoTLS}, // HTTP2 TLS支持
 		},
 	}
 
-	log.Printf("server listening:%s",a.addr)
+	log.Printf("server listening:%s", a.addr)
 	if err = srv.Serve(tls.NewListener(conn, srv.TLSConfig)); err != nil {
 		log.Fatalln("ListenAndServe: ", err)
 	}
 }
 
 //	grpcConfig	grpc 服务配置
-func (a *apConfig) grpcConfig() error{
+func (a *apConfig) grpcConfig() error {
 	var err error
 	a.cert.Leaf, err = x509.ParseCertificate(a.cert.Certificate[0])
 	if err != nil {
@@ -76,14 +78,16 @@ func (a *apConfig) grpcConfig() error{
 	}
 	opts := []grpc.ServerOption{
 		grpc.Creds(credentials.NewServerTLSFromCert(&a.cert)),
-		grpc_middleware.WithUnaryServerChain(),
+		grpc_middleware.WithUnaryServerChain(
+			a.interceptors...,
+		),
 	}
 	a.grpcServer = grpc.NewServer(opts...)
-	return  nil
+	return nil
 }
 
 // gatewayConfig geteway服务配置
-func (a *apConfig)  gatewayConfig(){
+func (a *apConfig) gatewayConfig() {
 	a.dopts = []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(a.certPool, a.serverNameOverride)),
 	}
@@ -132,9 +136,9 @@ func (a *apConfig) grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Ha
 				}
 			}
 			// 自定义过滤器
-			if config.gwFilter != nil{
-				res := config.gwFilter(w,r)
-				if res == false{
+			if config.gwFilter != nil {
+				res := config.gwFilter(w, r)
+				if res == false {
 					return
 				}
 			}
