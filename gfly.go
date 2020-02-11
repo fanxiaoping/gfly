@@ -20,22 +20,24 @@ func Run() {
 }
 
 // SetConfigCert 初始化配置
-func SetConfigCert(cer, key []byte, port string) {
+func SetConfigCert(cer, key []byte, port string, interceptors ...grpc.UnaryServerInterceptor) {
 	config = &apConfig{
-		addr: port,
-		cer:  cer,
-		key:  key,
+		addr:         port,
+		cer:          cer,
+		key:          key,
+		interceptors: interceptors,
 	}
 	config.initConfig()
 }
 
 // SetConfigCertOverride 初始化配置，设置证书测试域
-func SetConfigCertOverride(cer, key []byte, port, serverNameOverride string) {
+func SetConfigCertOverride(cer, key []byte, port, serverNameOverride string, interceptors ...grpc.UnaryServerInterceptor) {
 	config = &apConfig{
 		addr:               port,
 		cer:                cer,
 		key:                key,
 		serverNameOverride: serverNameOverride,
+		interceptors:       interceptors,
 	}
 	config.initConfig()
 }
@@ -65,11 +67,4 @@ func HandleFilter(filter func(w http.ResponseWriter, r *http.Request) bool) {
 		log.Fatalln("Not configured")
 	}
 	config.gwFilter = filter
-}
-
-// GrpcFilter Grpc过滤器
-func GrpcFilter(interceptors ...grpc.UnaryServerInterceptor) {
-	if len(interceptors) > 0 {
-		config.interceptors = interceptors
-	}
 }
