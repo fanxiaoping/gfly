@@ -10,6 +10,7 @@ import (
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"log"
 	"net"
 	"net/http"
@@ -70,12 +71,15 @@ func SetConfigCertOverride(cer, key []byte,port,serverNameOverride string){
 	config.initConfig()
 }
 
-func Register(r register){
+func Register(r register,option ...grpc.DialOption){
 	if config == nil{
 		log.Fatalln("Not configured")
 	}
 	// 注册grpc服务
 	r.RegisterServer(config.grpcServer)
+	for _,item := range option{
+		config.dopts = append(config.dopts,item)
+	}
 	// 注册gw服务区
 	r.RegisterHandlerFromEndpoint(config.ctx,config.gwMux,config.addr,config.dopts)
 }
@@ -131,7 +135,24 @@ func (a *apConfig)  gatewayConfig(){
 	a.dopts = []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(a.certPool, a.serverNameOverride)),
 	}
-	a.gwMux = runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
+	a.gwMux = runtime.NewServeMux(
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}),
+		runtime.WithMetadata(func(ctx context.Context, req *http.Request) metadata.MD {
+			kv := []string{}
+			for k, _ := range req.Header {
+				v := req.Header.Get(k)
+				if v == "" {
+					continue
+				}
+				k = strings.ToLower(k)
+				if k == "connection" || k == "content-length"{
+					continue
+				}
+				kv = append(kv, k, v)
+			}
+			return metadata.Pairs(kv...)
+		}),
+	)
 
 	a.httpMux = http.NewServeMux()
 	a.httpMux.Handle("/", a.gwMux)
