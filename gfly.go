@@ -7,6 +7,18 @@ import (
 	"google.golang.org/grpc"
 )
 
+type Fly struct {
+	config *apConfig
+}
+
+func NewFlyCert(cer, key []byte, port string)*Fly{
+	return nil
+}
+
+func NewFlyCertOverride(cer, key []byte, port, serverNameOverride string)*Fly{
+	return nil
+}
+
 var (
 	config *apConfig
 )
