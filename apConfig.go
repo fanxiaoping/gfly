@@ -154,12 +154,12 @@ func (a *apConfig) grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Ha
 				}
 			}
 			// 自定义过滤器
-			if config.gwFilter != nil {
-				res := config.gwFilter(w, r)
-				if res == false {
-					return
-				}
-			}
+			//if config.gwFilter != nil {
+			//	res := config.gwFilter(w, r)
+			//	if res == false {
+			//		return
+			//	}
+			//}
 			otherHandler.ServeHTTP(w, r)
 		}
 	})
