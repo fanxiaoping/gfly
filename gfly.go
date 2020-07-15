@@ -43,6 +43,7 @@ func NewFlyCertOverride(cer, key []byte, addr, serverNameOverride string) (fly *
 	fly = &Fly{
 		addr:    addr,
 		httpMux: http.NewServeMux(),
+		ctx:     context.Background(),
 	}
 	fly.cert, err = tls.X509KeyPair(cer, key)
 	if err != nil {
@@ -94,10 +95,10 @@ func (_self *Fly) Handle(pattern string, handler http.Handler) {
 
 // Run
 func (_self *Fly) Run() error {
-	gatewayServer := NewServeMux(_self.mpts...)
+	gatewayServer := newServeMux(_self.mpts...)
 	_self.httpMux.Handle("/", gatewayServer)
 
-	grpcServer, err := NewServer(_self.cert, _self.opts...)
+	grpcServer, err := newServer(_self.cert, _self.opts...)
 	if err != nil {
 		return err
 	}

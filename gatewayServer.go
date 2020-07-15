@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-// NewServeMux 实例化runtime.ServeMux对象
+// newServeMux 实例化runtime.ServeMux对象
 //
 // mpts runtime.ServeMuxOption可变数组
 //
 // runtime.ServeMux 实例化runtime.ServeMux指针对象
 //
-func NewServeMux(mpts ...runtime.ServeMuxOption)*runtime.ServeMux{
+func newServeMux(mpts ...runtime.ServeMuxOption)*runtime.ServeMux{
 	//json序列化字段空值返回
 	mpts = append(mpts, runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	//header注入到MD中
